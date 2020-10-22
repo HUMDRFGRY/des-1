@@ -5,6 +5,8 @@
 #include <cstdlib>
 #include "des.h"
 
+
+// 注意，如果演示的时候中文乱码，可输入chcp 65001  
 using namespace std ;
 
 const int num = 88 ;
