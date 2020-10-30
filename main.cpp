@@ -175,3 +175,13 @@ int main(int argc , char * argv[])
 	
 	return 0 ;
 }
+
+// 程序缺陷，最多支持64位数据的加密和解
+ // 计算文件大小
+    // srcFile.seekg(0,srcFile.end);
+    // size_t size = srcFile.tellg();
+    // cout << "This size of file is : " << size << endl;
+    // srcFile.seekg(0,srcFile.beg);
+
+
+
