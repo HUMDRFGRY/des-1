@@ -5,109 +5,8 @@
 #include <cstdlib>
 #include "des.h"
 
-
-// 注意，如果演示的时候中文乱码，可输入chcp 65001  
 using namespace std ;
 
-const int num = 88 ;
-
-void help(const string & str)
-{
-	string header("DES Manual      MaWenyi") ;
-	string command("Command : des option srcfile tarfile keyword") ;
-	string options("Options :") ;
-	string e("-e : encryption the srcfile with keyword , the result is stored in tarfile") ;
-	string d("-d : decryption the srcfile with keyword , the result is stored in tarfile") ;
-	string help("-h : show this manual") ;
-
-	for(size_t i = 0 ; i < num - 1 ; ++i)
-		cout << '*' ;
-	cout << endl ;
-
-	for(size_t i = 0 ; i < num ; ++i)
-	{
-		if(i == 0 || i == num - 1)
-			cout << '*' ;
-		else if(i == num / 2 - 3)
-		{
-			cout << header ;
-			i += header.size() ;
-		}
-		else cout << ' ' ;
-	}
-	cout << endl ;
-	for(size_t i = 0 ; i < num ; ++i)
-	{
-		if(i == 0 || i == num - 1)
-			cout << '*' ;
-		else if(i == 3)
-		{
-			cout << command ;
-			i += command.size() ;
-		}
-		else cout << ' ' ;
-	}
-	cout << endl ;
-	for(size_t i = 0 ; i < num ; ++i)
-	{
-		if(i == 0 || i == num - 1)
-			cout << '*' ;
-		else if(i == 3)
-		{
-			cout << options ;
-			i += options.size() ;
-		}
-		else cout << ' ' ;
-	}
-	cout << endl ;
-
-	for(size_t i = 0 ; i < num ; ++i)
-	{
-		if(i == 0 || i == num - 1)
-			cout << '*' ;
-		else if(i == 3)
-		{
-			cout << e ;
-			i += e.size() ;
-		}
-		else cout << ' ' ;
-	}
-	cout << endl ;
-
-	for(size_t i = 0 ; i < num ; ++i)
-	{
-		if(i == 0 || i == num - 1)
-			cout << '*' ;
-		else if(i == 3)
-		{
-			cout << d ;
-			i += d.size() ;
-		}
-		else cout << ' ' ;
-	}
-	cout << endl ;
-
-	for(size_t i = 0 ; i < num ; ++i)
-	{
-		if(i == 0 || i == num - 1)
-			cout << '*' ;
-		else if(i == 3)
-		{
-			cout << help ;
-			i += help.size() ;
-		}
-		else cout << ' ' ;
-	}
-	cout << endl ;
-	
-	for(size_t i = 0 ; i < num - 1 ; ++i)
-		cout << '*' ;
-	cout << endl ;
-	
-	cout << str << endl ;
-
-	exit(-1) ;//退出
-}
 
 void StrFromBlock(char * str , const Block & block)
 {
@@ -119,6 +18,9 @@ void StrFromBlock(char * str , const Block & block)
 	}
 }
 
+// 二进制010串
+// 不够64位，8字节如何进行加密,构建数据块存在问题
+// 如果str不够8字节，需要特殊处理
 void BlockFromStr(Block & block , const char * str)
 {
 	for(size_t i = 0 ; i < block.size() ; ++i)
@@ -131,57 +33,70 @@ void BlockFromStr(Block & block , const char * str)
 
 int main(int argc , char * argv[])
 {
-	if(argc < 2 || argv[1][0] != '-')
-		help("Command Args Error") ;//输入参数错误，打印帮助文件然后退出
+	if(argc < 2 || argv[1][0] != '-'){
+		// 参数个数非法
+    cout<<"参数输入有误"<<endl;
+    cout<<"正在退出"<<endl;
+    exit(-1);
+  }
 	
 	Method method ;//记录运算方式（加密/解密）
 	switch(argv[1][1])
 	{
 		case 'e'://加密
 			method = e ;
+      cout<<"正在进行加密......"<<endl;
 			break ;
-		case 'd'://加密
+		case 'd'://解密
 			method = d ;
-			break ;
-		case 'h'://打印帮助文件
-			help("") ;
+      cout<<"正在进行解密......"<<endl;
 			break ;
 		default:
-			help("Command Args Error") ;
+			// 输入参数有误
+      cout<<"参数输入有误"<<endl;
 			break ;
 	}
-	if(argc < 5 || strlen(argv[4]) < 8)
-		help("Command Args Error") ;//输入参数错误，打印帮助文件然后退出
 
 	ifstream srcFile(argv[2]) ;//输入文件
 	ofstream tarFile(argv[3]) ;//输出文件
-	if(!srcFile || !tarFile) help("File Open Error") ;//文件打开失败
-	
+	if(!srcFile || !tarFile){
+    cout<<"打开文件失败"<<endl;
+    exit(-1);
+  }
+	//文件打开失败
+
+	// 计算文件大小
+    long file_size ,number_of_blocks;
+    srcFile.seekg(0,srcFile.end);
+    size_t size = srcFile.tellg();
+    number_of_blocks=size/8 + ((size%8)?1:0);
+	srcFile.seekg(0,srcFile.beg);
+    cout << "File size is : " << size << endl;
+    cout << " Number of blocks is : " << number_of_blocks << endl;
+
 	Block block , bkey ;//数据块和密钥
 	BlockFromStr(bkey , argv[4]) ;//获取密钥
+	unsigned short int padding = 8 - size%8;
 	char buffer[8] ;
+	cout<<"需要填充的字符数 : "<< padding <<endl;
+
+	// 改写读取文件的循环,结束的逻辑不是end_of_file,最后一次读取需要作出处理,并非每次才能读取8个字节
+	// 以8字节分段加·解密数据
 	while(1)
 	{
 		memset(buffer , 0 , 8) ;//将8个字节置0
-		srcFile.read(buffer , 8) ;//从源中读取数据
-		if(srcFile.eof()) break ;
+		srcFile.read(buffer , 8) ;// 每次从源中读取8个字节数据
+		/*
+		size_t extracted = srcFile.gcount(); // 上一次读入的字符数
+		cout<<"gcount:   "<< extracted<<endl; 
+		*/
 		BlockFromStr(block , buffer) ;//构建数据块
 		des(block , bkey , method) ;
 		StrFromBlock(buffer , block) ;//获取运算后的数据
 		tarFile.write(buffer , 8) ;//写入目标文件
+		// 进行最后一次读取并跳出循环,需
 	}
-	srcFile.close() ;
-	tarFile.close() ;
-	
-	return 0 ;
+	tarFile.close();
+	srcFile.close();
+	return 0;
 }
-
-// 程序缺陷，最多支持64位数据的加密和解
- // 计算文件大小
-    // srcFile.seekg(0,srcFile.end);
-    // size_t size = srcFile.tellg();
-    // cout << "This size of file is : " << size << endl;
-    // srcFile.seekg(0,srcFile.beg);
-
-
-
