@@ -7,8 +7,6 @@
 
 using namespace std ;
 
-// 声明文件指针
-
 static FILE *input_file,*output_file;
 
 void StrFromBlock(char * str , const Block & block)
@@ -21,14 +19,10 @@ void StrFromBlock(char * str , const Block & block)
 	}
 }
 
-// 二进制010串
-// 不够64位，8字节如何进行加密,构建数据块存在问题
-// 如果str不够8字节，需要特殊处理
 void BlockFromStr(Block & block , const char * str)
 {
 	for(size_t i = 0 ; i < block.size() ; ++i)
 	{
-    // 指针的好处，可以处理数据的每一个字节，每一位（也就是访问内存）
 		if(0 != (*((unsigned char *)(str) + i / 8) & (1 << (7 - i % 8))))
 			block[i] = true ;
 		else 	block[i] = false ;
@@ -38,7 +32,6 @@ void BlockFromStr(Block & block , const char * str)
 int main(int argc , char * argv[])
 {
 	if(argc < 2 || argv[1][0] != '-'){
-		// 参数个数非法
     cout<<"参数输入有误"<<endl;
     cout<<"正在退出"<<endl;
     exit(-1);
@@ -76,12 +69,12 @@ int main(int argc , char * argv[])
   }
 
   long file_size,number_of_blocks,block_count=0;
-  //计算文件文件大小 
+
   fseek(input_file,0L,SEEK_END);//跳到文件尾
   file_size=ftell(input_file);
   cout<<"file_size: "<<file_size<<endl;
   fseek(input_file,0L,SEEK_SET);// 回到文件头
-  // 获取数据块数目
+
   number_of_blocks=file_size/8+((file_size%8)?1:0);
   cout<< "number_of_blocks: " <<number_of_blocks<<endl;
 
@@ -91,22 +84,18 @@ int main(int argc , char * argv[])
   char buffer[8]; // 分组数据
   unsigned short int padding = 8 -file_size%8; // 缺失字节
   cout<<"padding: "<<padding<<endl;
-  // 进行加解密
+
   while(fread(buffer,1,8,input_file)){ // 一直读取直到EOF==0
     block_count++;//从第一个数据块开始处理
-    // 处理最后一个数据块
     memset(text,0,8);
     if(block_count==number_of_blocks){
     cout<<"正在处理最后一个数据块"<<endl;
-      //加密逻辑
       if(method==e){
         if(padding<8){ // 需要构造辅助序列
-          // padding是一个状态变量
           memset((buffer+8-padding),(unsigned char)padding,padding);
         }
         BlockFromStr(block,buffer);
         des(block,bkey,method);
-        // 这里应该将block写入输出文件
         StrFromBlock(text,block);
         fwrite(text,1,8,output_file);
 
@@ -117,34 +106,22 @@ int main(int argc , char * argv[])
           fwrite(buffer,1,8,output_file);
         }
       }else{
-      // 解密逻辑,因为加密过程已经保证密文数据块是完整的8字节
         BlockFromStr(block,buffer);
         des(block,bkey,method);
-        // 这里涉及到类型转换
         StrFromBlock(text,block);
         padding=text[7];
-        // 这个padding不正确
         cout<<"解密的padding(buffer[7]) "<<text[7]<<endl;
         cout<<"解密的padding "<<padding<<endl;
 
         if(padding<8)
           fwrite(text,1,8-padding,output_file);
       }
-      // 最后一位,由加密过程决定,还原加密过程中构造的辅助序列
-      // 信息位，从padding 可以看出是否使用了辅助序列
-      // padding == 8   无需使用辅助序列
-      // padding < 8    使用padding将data_block填充为8字节
-
     }else{
-      // 处理非最后一个数据块,直接进行加解密，无需构造
       BlockFromStr(block,buffer);
       des(block,bkey,method);
       StrFromBlock(text,block);
-      // 写入输出文件
       fwrite(text,1,8,output_file);
-
     }
-
   }
   return 0;
 }
